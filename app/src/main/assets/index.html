@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Quantum Atom</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #0F1113; color: #E2E2E6; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        
+        canvas { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100vw; 
+            height: 100vh; 
+            z-index: 0; 
+            pointer-events: auto; /* Allow OrbitControls */
+        }
+        
+        #ui { 
+            position: absolute; 
+            bottom: 0; left: 0; right: 0; 
+            max-height: 55vh; overflow-y: auto;
+            background: #1A1C1E; 
+            padding: 24px; 
+            border-radius: 32px 32px 0 0; 
+            border-top: 1px solid #44474E; 
+            box-shadow: 0 -25px 50px -12px rgba(0, 0, 0, 0.5);
+            z-index: 100; 
+            pointer-events: auto; 
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+        h3 { 
+            margin: 0; 
+            font-size: 14px; 
+            font-weight: 600; 
+            color: #E2E2E6; 
+            text-align: center;
+            letter-spacing: -0.025em;
+        }
+        .controls-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+        .control-group { 
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .control-group.density-group {
+            grid-column: span 3;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            background: #0F1113;
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid #44474E;
+        }
+        .control-group.density-group input[type=range] {
+            flex: 1;
+            margin: 0 16px;
+        }
+        .control-group.density-group span.val {
+            width: auto;
+            border: none;
+            background: transparent;
+            font-size: 12px;
+            height: auto;
+            padding: 0;
+        }
+        label { 
+            font-size: 11px; 
+            font-weight: bold; 
+            color: #C2C6CF; 
+            text-transform: uppercase; 
+            letter-spacing: 0.05em; 
+            padding-left: 4px;
+        }
+        input[type=range] { 
+            width: 100%; 
+            accent-color: #D1E1FF;
+        }
+        span.val { 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 48px;
+            background-color: #0F1113;
+            border: 1px solid #44474E;
+            border-radius: 12px;
+            color: #D1E1FF;
+            font-family: monospace;
+            font-size: 18px;
+        }
+        
+        #error-log {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            background: rgba(255, 0, 0, 0.2);
+            color: #ffcccc;
+            border: 1px solid #ff0000;
+            padding: 10px;
+            border-radius: 8px;
+            z-index: 200;
+            font-family: monospace;
+            font-size: 10px;
+            display: none;
+            pointer-events: none;
+        }
+    </style>
+    <!-- Import Three.js via absolute CDN URL to avoid local file CORS in WebView -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="error-log"></div>
+    <div id="fallback-toast" style="display:none; position:absolute; top:20px; right:20px; background:#f39c12; color:#fff; padding:12px 24px; border-radius:8px; z-index:1000; font-weight:bold; box-shadow: 0 4px 12px rgba(0,0,0,0.5); pointer-events:none;">
+        ⚠️ Running in Fallback Mode (CPU Particle System)
+    </div>
+    
+    <div id="ui">
+        <h3>Quantum Atom</h3>
+        <div class="controls-container">
+            <div class="control-group" style="grid-column: span 3">
+                <label>Simulation Mode</label>
+                <select id="mode-select" style="width:100%; height:40px; background:#0F1113; color:#D1E1FF; border:1px solid #44474E; border-radius:12px; padding:0 12px; font-weight:bold; outline:none;">
+                    <option value="0">Single State (Stark/Zeeman)</option>
+                    <option value="1">Multi-Electron (Z 1-10)</option>
+                    <option value="2">TDSE Dynamics (Excitation)</option>
+                </select>
+            </div>
+            <div class="control-group" style="grid-column: span 3">
+                <label>Quick Presets</label>
+                <select id="preset-select" style="width:100%; height:40px; background:#0F1113; color:#D1E1FF; border:1px solid #44474E; border-radius:12px; padding:0 12px; font-weight:bold; outline:none;">
+                    <option value="custom">Custom Configuration</option>
+                    <option value="h_1s">Hydrogen 1s (Ground State)</option>
+                    <option value="h_2p">Hydrogen 2p (Excited State)</option>
+                    <option value="h_3d">Hydrogen 3d (Excited State)</option>
+                    <option value="he_1s2">Helium 1s² (Multi-Electron)</option>
+                    <option value="ne_ground">Neon Ground State (Multi-Electron)</option>
+                    <option value="tdse_rabi">Laser Excitation (TDSE)</option>
+                </select>
+            </div>
+            <div class="control-group state-group">
+                <label>n (Principal)</label>
+                <span class="val" id="n-val">3</span>
+                <input type="range" id="n-slider" min="1" max="5" step="1" value="3">
+            </div>
+            <div class="control-group state-group">
+                <label>l (Azimuthal)</label>
+                <span class="val" id="l-val">2</span>
+                <input type="range" id="l-slider" min="0" max="2" step="1" value="2">
+            </div>
+            <div class="control-group state-group">
+                <label>m (Magnetic)</label>
+                <span class="val" id="m-val">0</span>
+                <input type="range" id="m-slider" min="-2" max="2" step="1" value="0">
+            </div>
+            <div class="control-group z-group" style="display:none; grid-column:span 1;">
+                <label>Z (Protons)</label>
+                <span class="val" id="z-val" style="width:100%">2</span>
+                <input type="range" id="z-slider" min="1" max="10" step="1" value="2">
+            </div>
+            <div class="control-group z-group" style="display:none; grid-column:span 2;">
+                <label>N (Neutrons - Isotope)</label>
+                <span class="val" id="n-neutron-val" style="width:100%">2</span>
+                <input type="range" id="n-neutron-slider" min="0" max="20" step="1" value="2">
+            </div>
+            <div class="control-group field-group">
+                <label>E-Field (kV/cm)</label>
+                <span class="val" id="e-val">0.0</span>
+                <input type="range" id="e-slider" min="0" max="2" step="0.1" value="0.0">
+            </div>
+            <div class="control-group field-group">
+                <label>B-Field (Tesla)</label>
+                <span class="val" id="b-val">0.0</span>
+                <input type="range" id="b-slider" min="0" max="5" step="0.1" value="0.0">
+            </div>
+            <div class="control-group density-group">
+                <label style="padding:0">Cloud Density</label>
+                <input type="range" id="density-slider" min="0.1" max="5.0" step="0.1" value="1.0">
+                <span class="val" id="density-val">1.0</span>
+            </div>
+            <div style="grid-column: span 3; background: #0F1113; padding: 12px 16px; border-radius: 12px; border: 1px solid #44474E;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                    <label style="padding:0">Theoretical Emission Spectra</label>
+                    <label style="padding:0; color:#D1E1FF;" id="spectra-label">H (Z=1)</label>
+                </div>
+                <canvas id="spectra-canvas" width="800" height="80" style="width:100%; height:40px; background:#000; border-radius:4px;"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <script src="shaders.js"></script>
+    <script type="module" src="main.js"></script>
+</body>
+</html>

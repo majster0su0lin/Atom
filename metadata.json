@@ -1,0 +1,6 @@
+{
+  "name": "Quantum Atom",
+  "description": "3D interactive simulation of an atom with strict quantum-level physics accuracy.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
