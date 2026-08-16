@@ -133,7 +133,12 @@ class AssistantViewModel : ViewModel() {
     }
 
     private suspend fun generateContent(prompt: String): String = withContext(Dispatchers.IO) {
-        val apiKey = BuildConfig.GEMINI_API_KEY
+        val apiKey = try {
+            val field = com.example.BuildConfig::class.java.getField("GEMINI_API_KEY")
+            field.get(null) as? String ?: ""
+        } catch (e: Exception) {
+            ""
+        }
         if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY") {
             return@withContext "Please configure your Gemini API Key in the Secrets panel."
         }
